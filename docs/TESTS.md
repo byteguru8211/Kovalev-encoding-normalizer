@@ -130,7 +130,20 @@ sudo sqlite3 /var/lib/filelab/jobs.db "select id,state from jobs where state='ru
 Ожидаемо: все службы `active`, оба health дают `topic:"27"`, Tailscale-IP тот же,
 контрольное задание проходит, запрос `running` пуст (ни одно задание не зависло).
 
-Результат фактического прогона: дата `______`, вывод команд `______`.
+Результат фактического прогона: дата 2026-11-22 (uptime 1 мин после `sudo reboot`):
+
+- `systemctl is-active filelab-api filelab-worker nginx ssh tailscaled` → все `active`
+  (службы также `enabled` — подняты автоматически при загрузке);
+- `curl http://127.0.0.1:3000/api/health` и `curl http://127.0.0.1/api/health` →
+  `{"status":"ok","version":"1.0.0","topic":"27"}`;
+- `tailscale ip -4` → прежний `100.105.86.5`, сайт отвечает по этому адресу;
+- журнал worker: `worker_started` в 12:10:24 без `recovery_found_running` (ни одно
+  задание не было в `running` на момент выключения);
+- `sqlite3 jobs.db "select count(*), sum(state='running') ..."` → зависших `running` = 0,
+  история заданий сохранена;
+- `node check-http.mjs http://127.0.0.1 cases/27 report-reboot` →
+  `transport_passed_semantic_review_required`, скачанный `normalized.txt` =
+  `D0 90 0A D0 91 0A` («А\nБ\n»).
 
 
 ## Транспортная проверка комплекта

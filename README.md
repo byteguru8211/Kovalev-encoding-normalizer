@@ -226,7 +226,7 @@ sudo bash scripts/teacher-access-stop.sh
 | Остановка worker при непустой очереди | ✅ см. docs/TESTS.md |
 | Аварийное завершение worker (SIGKILL) | ✅ `failed/interrupted` после перезапуска |
 | Перезапуск API | ✅ состояние и результаты сохраняются |
-| Перезагрузка Linux | ✅ службы поднимаются автоматически |
+| Перезагрузка Linux | ✅ после `sudo reboot` службы active+enabled, health ок, IP прежний, зависших `running` нет |
 | Идемпотентность | ✅ нормализация `normalized.txt` повторно даёт те же байты |
 | `check-http.mjs cases/27` | ✅ транспорт пройден, артефакты скачаны |
 
