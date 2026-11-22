@@ -1,0 +1,22 @@
+{
+  "name": "kovalev-encoding-normalizer",
+  "version": "1.0.0",
+  "description": "Course project (topic 27): encoding and line-ending normalizer as a Linux file-processing service",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "worker": "node worker.mjs",
+    "test": "node --test \"tests/*.test.mjs\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/byteguru8211/Kovalev-encoding-normalizer.git"
+  },
+  "author": "Yury Kovalev <byteguru8211>",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.3.0",
+    "multer": "^2.5.0"
+  }
+}

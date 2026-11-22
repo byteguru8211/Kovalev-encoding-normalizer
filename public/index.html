@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Приведение кодировок — тема 27</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Приведение кодировок и переводов строк</h1>
+      <p id="health" class="health">Проверка сервера…</p>
+    </header>
+
+    <section class="card">
+      <h2>Новое задание</h2>
+      <form id="upload-form">
+        <label for="files">Текстовые файлы (1–10, до 10 MiB каждый, до 50 MiB всего)</label>
+        <input id="files" name="files" type="file" multiple required>
+        <p class="hint">Кодировка определяется автоматически: BOM UTF-8, UTF-16LE, UTF-16BE;
+          без BOM принимается только строгий UTF-8.</p>
+        <button type="submit" id="submit-btn">Отправить на обработку</button>
+      </form>
+      <p id="submit-status" class="status" role="status"></p>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <h2>Задания</h2>
+        <div class="row-actions">
+          <input id="find-input" type="text" placeholder="Найти по номеру задания" maxlength="128">
+          <button type="button" id="refresh-btn">Обновить</button>
+        </div>
+      </div>
+      <div id="jobs" class="jobs"></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
