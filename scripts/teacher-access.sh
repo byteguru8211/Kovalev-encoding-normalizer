@@ -29,12 +29,14 @@ fi
 
 echo "==> Bringing Tailscale up"
 systemctl enable --now tailscaled
-if ! tailscale status >/dev/null 2>&1; then
-  echo "Tailscale is not logged in yet. Opening the activation link:"
-  tailscale up --timeout=120s || {
-    echo "Login was not completed. Run 'sudo tailscale up' later and open the printed link." >&2
-    exit 1
-  }
+if tailscale ip -4 >/dev/null 2>&1 && tailscale status --peers=false >/dev/null 2>&1; then
+  echo "Tailscale already connected."
+else
+  # --reset clears any stale non-default flags (e.g. a previously set exit-node)
+  # that would otherwise make 'tailscale up' refuse to run. operator lets the
+  # student read 'tailscale status' without sudo.
+  tailscale up --reset --operator="$(logname 2>/dev/null || echo byteguru)" --timeout=180s \
+    || { echo "Login was not completed. Run 'sudo tailscale up' and open the printed link." >&2; exit 1; }
 fi
 
 TS_IP="$(tailscale ip -4)"
@@ -45,9 +47,9 @@ echo "Web page   : http://${TS_IP}/"
 echo "API health : http://${TS_IP}/api/health"
 echo "SSH (root) : ssh root@${TS_IP}     (password set above)"
 echo "Hostname   : ${HOSTNAME_CLEAN}"
-echo "Tailscale status: $(tailscale status --peers=false | head -1)"
+echo "Tailscale  : $(tailscale status --peers=false | head -1)"
 echo
-echo "Send the Tailscale network invitation (link) to the reviewer,"
-echo "then the SSH password personally. Revoke with:"
+echo "Give the reviewer a Tailscale share/invite for this tailnet,"
+echo "then the root SSH password personally. Revoke with:"
 echo "  sudo bash scripts/teacher-access-stop.sh"
 echo "==========================================================="
