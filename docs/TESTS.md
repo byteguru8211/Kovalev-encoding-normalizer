@@ -110,10 +110,28 @@ worker_started → recovery_found_running jobId=5bac82ed stalePid=25304 → job_
 
 ## 12. Перезагрузка Linux
 
-Выполняется перед сдачей: `sudo reboot`, после загрузки проверяются
-`systemctl is-active filelab-api filelab-worker nginx`, `curl http://127.0.0.1/api/health`,
-скачивание готового результата, отсутствие зависших `running`.
-Результат фиксируется здесь после выполнения.
+Выполняется автором перед сдачей. Службы `filelab-api`, `filelab-worker`, `nginx`,
+`ssh`, `tailscaled` отмечены `systemctl is-enabled ... = enabled`, поэтому поднимаются
+при загрузке автоматически. Порядок прогона (на сервере, после `sudo reboot` и
+переподключения по SSH):
+
+```bash
+uptime                                   # свежая загрузка
+systemctl is-active filelab-api filelab-worker nginx ssh
+curl -fsS http://127.0.0.1:3000/api/health   # прямой Node
+curl -fsS http://127.0.0.1/api/health        # через Nginx
+tailscale ip -4                          # 100.105.86.5
+# история заданий и готовые результаты не исчезли:
+node check-http.mjs http://127.0.0.1 cases/27 report-reboot
+# зависших running нет:
+sudo sqlite3 /var/lib/filelab/jobs.db "select id,state from jobs where state='running';"
+```
+
+Ожидаемо: все службы `active`, оба health дают `topic:"27"`, Tailscale-IP тот же,
+контрольное задание проходит, запрос `running` пуст (ни одно задание не зависло).
+
+Результат фактического прогона: дата `______`, вывод команд `______`.
+
 
 ## Транспортная проверка комплекта
 
