@@ -31,7 +31,7 @@ function parseArgs(argv) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const normalizer = new TextNormalizer();
-  const report = { topic: '27', generatedAt: new Date().toISOString(), files: [] };
+  const report = { generatedAt: new Date().toISOString(), files: [] };
 
   let tasks;
   let perFileOutputDir;

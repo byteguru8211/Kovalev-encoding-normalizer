@@ -157,7 +157,7 @@ findInput.addEventListener('keydown', (event) => {
 async function init() {
   try {
     const health = await fetchJson('/api/health');
-    healthBox.textContent = `Сервер: ${health.status}, тема ${health.topic}, версия ${health.version}`;
+    healthBox.textContent = `Сервер: ${health.status}, версия ${health.version}`;
   } catch (error) {
     healthBox.textContent = `Сервер недоступен: ${error.message}`;
   }

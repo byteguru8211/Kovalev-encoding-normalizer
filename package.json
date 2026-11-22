@@ -1,7 +1,7 @@
 {
   "name": "kovalev-encoding-normalizer",
   "version": "1.0.0",
-  "description": "Course project (topic 27): encoding and line-ending normalizer as a Linux file-processing service",
+  "description": "Encoding and line-ending normalizer as a Linux file-processing service",
   "type": "module",
   "main": "server.mjs",
   "scripts": {

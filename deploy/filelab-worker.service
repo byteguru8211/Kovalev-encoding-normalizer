@@ -1,5 +1,5 @@
 [Unit]
-Description=FileLab topic 27 queue worker
+Description=FileLab queue worker
 After=network.target
 
 [Service]

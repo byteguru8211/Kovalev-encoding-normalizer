@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installation of the FileLab topic 27 service on Ubuntu 24.04.
+# Installation of the FileLab service on Ubuntu 24.04.
 # Run from the repository root:  sudo bash scripts/install.sh
 # Re-runnable: replaces the installed release; data in /var/lib/filelab is kept.
 set -euo pipefail
