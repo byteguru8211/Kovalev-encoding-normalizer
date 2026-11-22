@@ -6,11 +6,14 @@ import { NormalizationError } from '../src/normalizer/errors.mjs';
 
 const USAGE = `Usage:
   node bin/normalize.mjs --input <file> --output <file> [--report <file>]
-  node bin/normalize.mjs --manifest <jobs.json> --output-dir <dir> [--report <file>]
+  node bin/normalize.mjs --manifest <jobs.json> --output-dir <dir> [--report <file>] [--delay-ms <n>]
 
 manifest format: [{"input": "/abs/path", "name": "original.txt", "output": "normalized.txt"}]
+--delay-ms is a TEST-ONLY artificial pause to observe queue behaviour.
 Exit codes: 0 success, 2 invalid input (encoding error), 1 internal error.
 `;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function parseArgs(argv) {
   const args = {};
@@ -52,6 +55,11 @@ async function main() {
   }
 
   try {
+    if (args['delay-ms']) {
+      const delay = Math.min(Math.max(Number(args['delay-ms']) || 0, 0), 30000);
+      process.stderr.write(`test_delay_ms=${delay}\n`);
+      await sleep(delay);
+    }
     for (const task of tasks) {
       const bytes = new Uint8Array(await readFile(task.input));
       const result = normalizer.normalizeBytes(bytes);

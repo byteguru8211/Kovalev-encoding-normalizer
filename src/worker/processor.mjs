@@ -6,10 +6,11 @@ import { jobPaths } from '../server/db.mjs';
 const CLI_PATH = path.resolve(import.meta.dirname, '../../bin/normalize.mjs');
 
 export class JobProcessor {
-  constructor({ config, repo, log }) {
+  constructor({ config, repo, log, isShuttingDown = () => false }) {
     this.config = config;
     this.repo = repo;
     this.log = log;
+    this.isShuttingDown = isShuttingDown;
   }
 
   execute(job) {
@@ -25,8 +26,13 @@ export class JobProcessor {
         this.#publish(job, paths);
         this.log({ event: 'job_succeeded', jobId: job.id, pid: outcome.pid, elapsedMs: Math.round(elapsedMs) });
       } else {
-        this.repo.failJob(job.id, outcome.code, outcome.message);
-        this.log({ event: 'job_failed', jobId: job.id, pid: outcome.pid ?? null, code: outcome.code, elapsedMs: Math.round(elapsedMs) });
+        const interrupted = this.isShuttingDown() && outcome.signal !== null;
+        const code = interrupted ? 'interrupted' : outcome.code;
+        const message = interrupted
+          ? 'Обработка прервана остановкой службы-обработчика'
+          : outcome.message;
+        this.repo.failJob(job.id, code, message);
+        this.log({ event: 'job_failed', jobId: job.id, pid: outcome.pid ?? null, code, elapsedMs: Math.round(elapsedMs) });
       }
       fs.rmSync(paths.staging, { recursive: true, force: true });
       fs.rmSync(manifestPath, { force: true });
@@ -44,11 +50,20 @@ export class JobProcessor {
 
   #runChild(job, manifestPath, paths) {
     return new Promise((resolve) => {
-      const child = spawn(
-        process.execPath,
-        [CLI_PATH, '--manifest', manifestPath, '--output-dir', paths.staging, '--report', path.join(paths.staging, 'encoding-report.json')],
-        { stdio: ['ignore', 'pipe', 'pipe'], cwd: paths.root },
-      );
+      const cliArgs = [
+        CLI_PATH,
+        '--manifest', manifestPath,
+        '--output-dir', paths.staging,
+        '--report', path.join(paths.staging, 'encoding-report.json'),
+      ];
+      const testDelayMs = Number(job.params?.testDelayMs);
+      if (Number.isFinite(testDelayMs) && testDelayMs > 0) {
+        cliArgs.push('--delay-ms', String(Math.min(testDelayMs, 30000)));
+      }
+      const child = spawn(process.execPath, cliArgs, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: paths.root,
+      });
       this.repo.setWorkerPid(job.id, child.pid);
       this.log({ event: 'job_started', jobId: job.id, pid: child.pid, files: job.files.length });
 
@@ -75,7 +90,7 @@ export class JobProcessor {
           resolve({ status: 'ok', pid: child.pid });
           return;
         }
-        resolve({ status: 'error', pid: child.pid, ...this.#parseChildError(code, signal, stderrText) });
+        resolve({ status: 'error', pid: child.pid, signal, ...this.#parseChildError(code, signal, stderrText) });
       });
     });
   }
