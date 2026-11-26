@@ -33,7 +33,10 @@ export class JobRepository {
   }
 
   createJob({ params, files }) {
-    const id = randomUUID();
+    return this.createJobWithId(randomUUID(), { params, files });
+  }
+
+  createJobWithId(id, { params, files }) {
     const createdAt = new Date().toISOString();
     this.db
       .prepare('INSERT INTO jobs (id, state, created_at, params, files) VALUES (?, ?, ?, ?, ?)')
@@ -100,7 +103,10 @@ export class JobRepository {
   }
 
   runningJobs() {
-    return this.listJobs(1000).filter((job) => job.state === 'running');
+    const rows = this.db
+      .prepare("SELECT * FROM jobs WHERE state = 'running' ORDER BY created_at, rowid")
+      .all();
+    return rows.map((row) => JobRepository.#toDto(row));
   }
 
   static #toDto(row) {

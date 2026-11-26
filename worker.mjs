@@ -1,6 +1,7 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { Config } from './src/server/config.mjs';
-import { JobRepository } from './src/server/db.mjs';
+import { JobRepository, jobPaths } from './src/server/db.mjs';
 import { JobProcessor } from './src/worker/processor.mjs';
 
 const config = Config.fromEnv();
@@ -26,12 +27,27 @@ function pidAlive(pid) {
   }
 }
 
+// A stored PID may have been recycled by an unrelated process after a crash. Only
+// treat it as our child when its command line still references this job's manifest.
+function isOurChild(pid, jobId) {
+  if (!pidAlive(pid)) return false;
+  try {
+    const cmdline = fs.readFileSync(path.join('/proc', String(pid), 'cmdline'), 'utf8');
+    return cmdline.includes(path.join('jobs', jobId, 'manifest.json'));
+  } catch {
+    return false;
+  }
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function recoverInterruptedJobs() {
   for (const job of repo.runningJobs()) {
     log({ event: 'recovery_found_running', jobId: job.id, stalePid: job.workerPid });
-    if (pidAlive(job.workerPid)) {
+    if (isOurChild(job.workerPid, job.id)) {
       log({ event: 'recovery_waiting_stale_child', jobId: job.id, pid: job.workerPid });
-      while (pidAlive(job.workerPid)) {
+      const deadline = Date.now() + (config.jobTimeoutSec + 5) * 1000;
+      while (isOurChild(job.workerPid, job.id) && Date.now() < deadline) {
         await sleep(200);
       }
     }
@@ -39,8 +55,6 @@ async function recoverInterruptedJobs() {
     log({ event: 'job_failed', jobId: job.id, code: 'interrupted' });
   }
 }
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function tick() {
   if (shuttingDown) return;

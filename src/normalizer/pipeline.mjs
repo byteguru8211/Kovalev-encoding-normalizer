@@ -1,6 +1,8 @@
 import { Encoding, EncodingDetector, Utf16Decoder, StrictUtf8Decoder } from './codecs.mjs';
 import { LineEndingNormalizer, countCodePoints } from './line-endings.mjs';
 
+const ZWNBSP = String.fromCharCode(0xfeff);
+
 export class NormalizationResult {
   constructor(fields) {
     Object.assign(this, fields);
@@ -27,8 +29,15 @@ export class TextNormalizer {
   normalizeBytes(bytes) {
     const detected = EncodingDetector.detect(bytes);
     let text = this.#decode(bytes, detected);
-    if (text.startsWith('\uFEFF')) {
-      text = text.slice(1);
+    // A leading U+FEFF is a BOM/ZWNBSP artifact, not intended content. Strip all of
+    // them so the UTF-8 output never begins with EF BB BF; otherwise re-reading the
+    // output would detect a BOM again and normalization would not be idempotent.
+    let bomCount = 0;
+    while (bomCount < text.length && text[bomCount] === ZWNBSP) {
+      bomCount += 1;
+    }
+    if (bomCount > 0) {
+      text = text.slice(bomCount);
     }
     const { text: normalizedText, stats } = LineEndingNormalizer.normalize(text);
     const normalizedBytes = new TextEncoder().encode(normalizedText);

@@ -60,6 +60,21 @@ test('re-normalization is idempotent', () => {
   assert.equal(second.bomDetected, false);
 });
 
+test('multiple leading U+FEFF keep normalization idempotent (regression)', () => {
+  // UTF-8 without a detected BOM but with three U+FEFF as content: EF BB BF repeated.
+  const bytes = new Uint8Array([0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf, 0x41]);
+  const first = normalizer.normalizeBytes(bytes);
+  assert.equal(first.normalizedText, 'A');
+  const second = normalizer.normalizeBytes(first.normalizedBytes);
+  assert.deepEqual(Buffer.from(second.normalizedBytes), Buffer.from(first.normalizedBytes));
+  // Also via UTF-16LE: BOM + three U+FEFF + 'A'.
+  const u16 = withBom(BOM_UTF16LE, utf16leBytes('\uFEFF\uFEFF\uFEFFA'));
+  const fromU16 = normalizer.normalizeBytes(u16);
+  assert.equal(fromU16.normalizedText, 'A');
+  const again = normalizer.normalizeBytes(fromU16.normalizedBytes);
+  assert.deepEqual(Buffer.from(again.normalizedBytes), Buffer.from(fromU16.normalizedBytes));
+});
+
 test('UTF-8 BOM is detected and stripped', () => {
   const result = normalizer.normalizeBytes(withBom(BOM_UTF8, utf8('привет\rмире')));
   assert.equal(result.encoding, 'UTF-8');

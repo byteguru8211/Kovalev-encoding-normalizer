@@ -28,7 +28,7 @@ export function createApp({ config, repo }) {
   });
 
   const upload = buildUpload(incomingDir);
-  app.post('/api/jobs', attachUploadToken(upload), upload.array('files', Config.maxFiles + 1), async (req, res, next) => {
+  app.post('/api/jobs', attachUploadToken(upload), upload.array('files', Config.maxFiles), async (req, res, next) => {
     try {
       const job = acceptJob({ req, config, repo, incomingDir });
       res.status(202).json({ id: job.id, state: job.state });
@@ -98,7 +98,7 @@ function buildUpload(incomingDir) {
     storage,
     limits: {
       fileSize: Config.maxFileBytes,
-      files: Config.maxFiles + 1,
+      files: Config.maxFiles,
       fields: 1,
     },
   });
@@ -119,7 +119,21 @@ function acceptJob({ req, config, repo, incomingDir }) {
   }
   const params = parseParams(req.body?.params);
 
-  const job = repo.createJob({
+  // Move the inputs into the job directory BEFORE the job becomes queued, so the
+  // worker can never claim a job whose input files are not yet on disk.
+  const id = randomUUID();
+  const paths = jobPaths(config.dataDir, id);
+  fs.mkdirSync(paths.input, { recursive: true });
+  try {
+    for (const file of files) {
+      fs.renameSync(file.path, path.join(paths.input, path.basename(file.path)));
+    }
+  } catch (error) {
+    fs.rmSync(paths.root, { recursive: true, force: true });
+    throw new HttpApiError(500, 'storage_error', 'Не удалось сохранить входные файлы');
+  }
+
+  const job = repo.createJobWithId(id, {
     params,
     files: files.map((file, index) => ({
       index: index + 1,
@@ -129,11 +143,6 @@ function acceptJob({ req, config, repo, incomingDir }) {
     })),
   });
 
-  const paths = jobPaths(config.dataDir, job.id);
-  fs.mkdirSync(paths.input, { recursive: true });
-  for (const file of files) {
-    fs.renameSync(file.path, path.join(paths.input, path.basename(file.path)));
-  }
   fs.rmSync(uploadDir, { recursive: true, force: true });
   return job;
 }
@@ -192,8 +201,8 @@ function mapError(error) {
   if (error?.code === 'LIMIT_FILE_SIZE') {
     return new HttpApiError(413, 'file_too_large', 'Размер файла превышает 10 MiB');
   }
-  if (error?.code === 'LIMIT_UNEXPECTED_FILE') {
-    return new HttpApiError(413, 'too_many_files', 'Слишком много файлов или неизвестное поле формы');
+  if (error?.code === 'LIMIT_FILE_COUNT' || error?.code === 'LIMIT_UNEXPECTED_FILE') {
+    return new HttpApiError(413, 'too_many_files', `Один запрос содержит не более ${Config.maxFiles} файлов`);
   }
   if (error?.type === 'entity.parse.failed') {
     return new HttpApiError(400, 'invalid_request', 'Некорректная форма запроса');

@@ -20,22 +20,30 @@ export class JobProcessor {
     fs.writeFileSync(manifestPath, JSON.stringify(this.#buildManifest(job, paths), null, 2));
 
     const started = process.hrtime.bigint();
-    return this.#runChild(job, manifestPath, paths).then((outcome) => {
+    return this.#runChild(job, manifestPath, paths).then(async (outcome) => {
       const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
-      if (outcome.status === 'ok') {
-        this.#publish(job, paths);
-        this.log({ event: 'job_succeeded', jobId: job.id, pid: outcome.pid, elapsedMs: Math.round(elapsedMs) });
-      } else {
-        const interrupted = this.isShuttingDown() && outcome.signal !== null;
-        const code = interrupted ? 'interrupted' : outcome.code;
-        const message = interrupted
-          ? 'Обработка прервана остановкой службы-обработчика'
-          : outcome.message;
-        this.repo.failJob(job.id, code, message);
-        this.log({ event: 'job_failed', jobId: job.id, pid: outcome.pid ?? null, code, elapsedMs: Math.round(elapsedMs) });
+      try {
+        if (outcome.status === 'ok') {
+          this.#publish(job, paths);
+          this.log({ event: 'job_succeeded', jobId: job.id, pid: outcome.pid, elapsedMs: Math.round(elapsedMs) });
+        } else {
+          const interrupted = this.isShuttingDown() && outcome.signal !== null;
+          const code = interrupted ? 'interrupted' : outcome.code;
+          const message = interrupted
+            ? 'Обработка прервана остановкой службы-обработчика'
+            : outcome.message;
+          this.repo.failJob(job.id, code, message);
+          this.log({ event: 'job_failed', jobId: job.id, pid: outcome.pid ?? null, code, elapsedMs: Math.round(elapsedMs) });
+        }
+      } catch (error) {
+        // Success was reported by the child but publishing failed: never leave the
+        // job in running. Record a clear internal error instead.
+        this.repo.failJob(job.id, 'internal_error', `Не удалось опубликовать результат: ${String(error?.message ?? error)}`);
+        this.log({ event: 'job_failed', jobId: job.id, code: 'internal_error', elapsedMs: Math.round(elapsedMs) });
+      } finally {
+        fs.rmSync(paths.staging, { recursive: true, force: true });
+        fs.rmSync(manifestPath, { force: true });
       }
-      fs.rmSync(paths.staging, { recursive: true, force: true });
-      fs.rmSync(manifestPath, { force: true });
     });
   }
 
